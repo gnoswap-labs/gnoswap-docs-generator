@@ -390,13 +390,11 @@ func (r *MarkdownRenderer) RenderTypes(pkg *model.DocPackage) string {
 		typParts = append(typParts, fmt.Sprintf("### %s", typ.Name))
 
 		// Type signature
-		typParts = append(typParts, "```go")
-		if typ.Signature != "" {
-			typParts = append(typParts, typ.Signature)
-		} else {
-			typParts = append(typParts, fmt.Sprintf("type %s %s", typ.Name, typ.TypeKind))
+		signature := typ.Signature
+		if signature == "" {
+			signature = fmt.Sprintf("type %s %s", typ.Name, typ.TypeKind)
 		}
-		typParts = append(typParts, "```")
+		typParts = append(typParts, "```go\n"+signature+"\n```")
 
 		// Documentation
 		if typ.Doc != "" {
@@ -524,16 +522,11 @@ func (r *MarkdownRenderer) RenderExamples(pkg *model.DocPackage) string {
 		}
 
 		// Code
-		exParts = append(exParts, "```go")
-		exParts = append(exParts, ex.Code)
-		exParts = append(exParts, "```")
+		exParts = append(exParts, "```go\n"+ex.Code+"\n```")
 
 		// Output
 		if ex.HasOutput() {
-			exParts = append(exParts, "**Output:**")
-			exParts = append(exParts, "```")
-			exParts = append(exParts, ex.Output)
-			exParts = append(exParts, "```")
+			exParts = append(exParts, "**Output:**", "```\n"+ex.Output+"\n```")
 		}
 
 		parts = append(parts, strings.Join(exParts, "\n\n"))

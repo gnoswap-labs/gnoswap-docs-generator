@@ -285,6 +285,10 @@ func TestMarkdownRenderer_Types(t *testing.T) {
 	if !strings.Contains(result, "String") {
 		t.Error("expected String method")
 	}
+
+	if !strings.Contains(result, "```go\ntype Foo struct\n```") {
+		t.Errorf("type declaration should not have blank lines inside its code fence:\n%s", result)
+	}
 }
 
 func TestMarkdownRenderer_Examples(t *testing.T) {
@@ -321,6 +325,10 @@ func TestMarkdownRenderer_Examples(t *testing.T) {
 	// Should contain output
 	if !strings.Contains(result, "Output:") || !strings.Contains(result, "hello") {
 		t.Error("expected example output")
+	}
+
+	if !strings.Contains(result, "```go\nfmt.Println(\"hello\")\n```") || !strings.Contains(result, "```\nhello\n```") {
+		t.Errorf("example code and output should not have blank lines inside their fences:\n%s", result)
 	}
 }
 
