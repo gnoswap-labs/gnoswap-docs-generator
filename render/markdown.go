@@ -343,9 +343,7 @@ func (r *MarkdownRenderer) RenderFunctions(pkg *model.DocPackage) string {
 		fnParts = append(fnParts, fmt.Sprintf("## %s", fn.Name))
 
 		// Signature
-		fnParts = append(fnParts, "```go")
-		fnParts = append(fnParts, formatSignatureMultiline(fn))
-		fnParts = append(fnParts, "```")
+		fnParts = append(fnParts, "```go\n"+formatSignatureMultiline(fn)+"\n```")
 
 		// Documentation
 		docText, paramItems, returnItems := splitDocSections(fn.Doc)
@@ -619,12 +617,18 @@ func splitDocSections(doc string) (string, []docItem, []docItem) {
 		case "Parameters:":
 			items, next := parseDocList(lines, i+1)
 			paramItems = append(paramItems, items...)
+			cleaned = trimEmptyLines(cleaned)
 			i = next - 1
 			continue
 		case "Returns:":
 			items, next := parseDocList(lines, i+1)
 			returnItems = append(returnItems, items...)
+			cleaned = trimEmptyLines(cleaned)
 			i = next - 1
+			continue
+		}
+		if strings.HasPrefix(trimmed, "Halt check:") {
+			cleaned = append(cleaned, "> **Halt check:**"+strings.TrimPrefix(trimmed, "Halt check:"))
 			continue
 		}
 		cleaned = append(cleaned, lines[i])
@@ -637,14 +641,22 @@ func splitDocSections(doc string) (string, []docItem, []docItem) {
 func parseDocList(lines []string, start int) ([]docItem, int) {
 	var items []docItem
 	i := start
+	if i >= len(lines) {
+		return items, i
+	}
+	indent := len(lines[i]) - len(strings.TrimLeft(lines[i], " \t"))
 	for i < len(lines) {
-		trimmed := strings.TrimLeft(lines[i], " \t")
-		if !strings.HasPrefix(trimmed, "- ") {
+		line := lines[i]
+		trimmed := strings.TrimLeft(line, " \t")
+		lineIndent := len(line) - len(trimmed)
+		if lineIndent == indent && strings.HasPrefix(trimmed, "- ") {
+			key, desc := splitKeyDesc(strings.TrimSpace(strings.TrimPrefix(trimmed, "- ")))
+			items = append(items, docItem{Key: key, Desc: desc})
+		} else if len(items) > 0 && lineIndent > indent && trimmed != "" {
+			items[len(items)-1].Desc += " " + strings.TrimSpace(line)
+		} else {
 			break
 		}
-		item := strings.TrimSpace(strings.TrimPrefix(trimmed, "- "))
-		key, desc := splitKeyDesc(item)
-		items = append(items, docItem{Key: key, Desc: desc})
 		i++
 	}
 	return items, i
