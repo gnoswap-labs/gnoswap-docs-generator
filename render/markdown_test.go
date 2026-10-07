@@ -177,16 +177,6 @@ func TestMarkdownRenderer_Functions(t *testing.T) {
 	r := NewMarkdownRenderer(DefaultOptions())
 	result := r.RenderFunctions(pkg)
 
-	// Should contain Functions header
-	if !strings.Contains(result, "## Functions") {
-		t.Error("expected Functions header")
-	}
-
-	// Should contain function name as subheader
-	if !strings.Contains(result, "### NewFoo") {
-		t.Error("expected NewFoo as subheader")
-	}
-
 	// Should contain signature
 	if !strings.Contains(result, "func NewFoo") {
 		t.Error("expected function signature")
@@ -195,6 +185,50 @@ func TestMarkdownRenderer_Functions(t *testing.T) {
 	// Should contain doc
 	if !strings.Contains(result, "It returns nil if x is negative.") {
 		t.Error("expected function doc")
+	}
+}
+
+func TestMarkdownRenderer_MultilineDocLists(t *testing.T) {
+	pkg := &model.DocPackage{
+		Funcs: []model.DocFunc{{
+			DocNode: model.DocNode{
+				Name:     "CreatePool",
+				Kind:     model.KindFunc,
+				Exported: true,
+				Doc: "CreatePool creates a pool.\n\nParameters:\n" +
+					"  - cur: Current realm context; callers use cross(cur) when crossing into this\n" +
+					"    realm.\n" +
+					"  - token0Path: First token path, which is normalized into the\n" +
+					"    canonical pool order.\n\n" +
+					"Returns:\n" +
+					"  - poolPath: Canonical pool path as a\n" +
+					"    string.\n\n" +
+					"Halt check: reverts while the Pool halt scope is active.",
+			},
+			Params:  []model.DocParam{{Name: "cur", Type: "realm"}, {Name: "token0Path", Type: "string"}},
+			Results: []model.DocParam{{Name: "poolPath", Type: "string"}},
+		}},
+	}
+
+	result := NewMarkdownRenderer(DefaultOptions()).RenderFunctions(pkg)
+	for _, want := range []string{
+		"| `cur` | realm | Current realm context; callers use cross(cur) when crossing into this realm. |",
+		"| `token0Path` | string | First token path, which is normalized into the canonical pool order. |",
+		"| `poolPath` | string | Canonical pool path as a string. |",
+		"> **Halt check:** reverts while the Pool halt scope is active.",
+	} {
+		if !strings.Contains(result, want) {
+			t.Errorf("missing rendered description %q:\n%s", want, result)
+		}
+	}
+	if strings.Contains(result, "\n    realm.") || strings.Contains(result, "\n  - token0Path:") {
+		t.Errorf("parameter continuation leaked into prose:\n%s", result)
+	}
+	if !strings.Contains(result, "```go\nfunc CreatePool(") || !strings.Contains(result, ") (poolPath string)\n```") {
+		t.Errorf("signature code fence has padding lines:\n%s", result)
+	}
+	if !strings.Contains(result, "CreatePool creates a pool.\n\n> **Halt check:**") {
+		t.Errorf("halt note is not separated from prose:\n%s", result)
 	}
 }
 
@@ -251,6 +285,10 @@ func TestMarkdownRenderer_Types(t *testing.T) {
 	if !strings.Contains(result, "String") {
 		t.Error("expected String method")
 	}
+
+	if !strings.Contains(result, "```go\ntype Foo struct\n```") {
+		t.Errorf("type declaration should not have blank lines inside its code fence:\n%s", result)
+	}
 }
 
 func TestMarkdownRenderer_Examples(t *testing.T) {
@@ -287,6 +325,10 @@ func TestMarkdownRenderer_Examples(t *testing.T) {
 	// Should contain output
 	if !strings.Contains(result, "Output:") || !strings.Contains(result, "hello") {
 		t.Error("expected example output")
+	}
+
+	if !strings.Contains(result, "```go\nfmt.Println(\"hello\")\n```") || !strings.Contains(result, "```\nhello\n```") {
+		t.Errorf("example code and output should not have blank lines inside their fences:\n%s", result)
 	}
 }
 
@@ -401,7 +443,6 @@ func TestMarkdownRenderer_FullRender(t *testing.T) {
 		"# mypkg",
 		"## Index",
 		"## Constants",
-		"## Functions",
 		"## Types",
 		"## Examples",
 	}
